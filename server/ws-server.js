@@ -1,5 +1,6 @@
 const { WebSocketServer } = require('ws')
-const wss = new WebSocketServer({ port: 8080 })
+const PORT = 9090
+const wss = new WebSocketServer({ port: PORT })
 
 let issues = [
     { id: '1', title: 'Crack in load-bearing wall', room: 'Room 101', severity: 'high', status: 'open', createdAt: Date.now(), reportedBy: 'Dana' },
@@ -32,7 +33,9 @@ setInterval(() => {
 }, 5000)
 
 wss.on('connection', ws => {
-    ws.send(JSON.stringify({ type: 'INIT', issues }))
+    setTimeout(() => {
+        ws.send(JSON.stringify({ type: 'INIT', issues }))
+    }, 100)  // give client time to set up onmessage
     console.log('client connected')
 
     ws.on('message', (data) => {
@@ -54,4 +57,4 @@ wss.on('connection', ws => {
     })
 })
 
-console.log('WS server on ws://localhost:8080')
+console.log(`WS server on ws://localhost:${PORT}`)

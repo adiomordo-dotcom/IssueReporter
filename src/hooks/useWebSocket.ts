@@ -25,21 +25,25 @@ const useWebSocket = () => {
             };
 
             ws.current.onmessage = (event) => {
+                console.log('RAW MESSAGE:', event.data);
                 const data = JSON.parse(event.data);
-                if (data.type === 'INIT') {
-                    // Handle initial data
+                if (data.type === 'INIT' && data.issues) {
+                    console.log('Received initial issues:', data.issues);
                     useIssueStore.getState().setIssues(data.issues);
                 } else if (data.type === 'ISSUE_UPDATE') {
                     // Handle issue updates if needed
+                    console.log('Received issue update:', data.issue);
                     useIssueStore.getState().updateIssue(data.issue);
                 } else if (data.type === 'ISSUE_ADDED') {
                     // Handle new issue if needed
+                    console.log('Received new issue:', data.issue);
                     useIssueStore.getState().addIssue(data.issue);
                 }
             };
 
             ws.current.onclose = () => {
                 setConnected('disconnected');
+                console.log('WebSocket disconnected');
                 setLoading(false);
                 // Attempt to reconnect after a delay
                 reconnectTimeout.current = setTimeout(connectWebSocket, 5000);
