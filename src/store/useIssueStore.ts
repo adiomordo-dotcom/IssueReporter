@@ -10,6 +10,7 @@ interface IssueStore {
     setIsLoading: (isLoading: boolean) => void;
     updateIssue: (updatedIssue: Issue) => void;
     addIssue: (newIssue: Issue) => void;
+    removeIssue: (issueId: string) => void;
 }
 
 export const useIssueStore = create<IssueStore>((set) => ({
@@ -31,4 +32,9 @@ export const useIssueStore = create<IssueStore>((set) => ({
     addIssue: (newIssue) => set((state) => ({
         issues: { ...state.issues, [newIssue.id]: newIssue }
     })),
+    removeIssue: (issueId) => set((state) => {
+        const newIssues = { ...state.issues };
+        delete newIssues[issueId];
+        return { issues: newIssues };
+    }),
 }));

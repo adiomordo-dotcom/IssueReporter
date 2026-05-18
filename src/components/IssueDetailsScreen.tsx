@@ -1,13 +1,76 @@
-import React from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
-import { RouteProp, useRoute } from "@react-navigation/native";
+import React, { useEffect } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { useWebSocket } from "../hooks";
 import { useIssueStore } from "../store";
 import { IssueStackParams } from "../navigation/types";
+import { SEVERITY_COLORS, STATUS_LABELS, STATUS_ORDER } from "../constants";
+import { IssueStatus } from "../types";
+
+const Divider = () => <View style={styles.divider} />;
+
+const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
+    <View style={styles.row}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        <Text style={styles.rowValue}>{value}</Text>
+    </View>
+);
+
+const DeleteButton = ({ onPress }: { onPress: () => void }) => (
+    <TouchableOpacity onPress={onPress} style={styles.deleteSection}>
+        <Text style={styles.deleteText}>Delete Issue</Text>
+    </TouchableOpacity>
+);
+
+const StatusButton = ({ onPress, disabled, nextStatus }: { onPress: () => void; disabled: boolean; nextStatus: IssueStatus | null }) => (
+    <TouchableOpacity
+        onPress={onPress}
+        disabled={disabled}
+        style={[styles.statusButton, disabled && styles.statusButtonDisabled]}
+    >
+        <Text>{nextStatus ? `Mark as ${STATUS_LABELS[nextStatus]}` : 'Resolved'}</Text>
+    </TouchableOpacity>
+);
 
 const IssueDetailsScreen = () => {
+    const { send } = useWebSocket();
+    const navigation = useNavigation();
     const route = useRoute<RouteProp<IssueStackParams, 'IssueDetails'>>()
     const { issueId } = route.params
+
     const issue = useIssueStore(state => state.issues[issueId])
+    const deleteIssue = useIssueStore(state => state.removeIssue)
+
+    const nextStatus = STATUS_ORDER[STATUS_ORDER.indexOf(issue?.status) + 1]
+
+    const handleStatusUpdate = () => {
+        if (!nextStatus) return
+        useIssueStore.getState().updateIssue({ ...issue, status: nextStatus }) // optimistic
+        send({ type: 'UPDATE_STATUS', issueId, status: nextStatus })
+    }
+
+
+    const handleDelete = () => {
+        navigation.goBack()
+        deleteIssue(issueId)
+    }
+
+    const opacity = useSharedValue(1);
+
+    const isMounted = React.useRef(false)
+
+    useEffect(() => {
+        if (!isMounted.current) {
+            isMounted.current = true
+            return
+        }
+        opacity.value = withTiming(0, { duration: 150 }, () => {
+            opacity.value = withTiming(1, { duration: 150 })
+        })
+    }, [issue?.status])
+
+    const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }))
 
     if (!issue) {
         return (
@@ -18,17 +81,6 @@ const IssueDetailsScreen = () => {
     }
 
     const { title, room, severity, createdAt, status, reportedBy } = issue;
-    const severityColors = {
-        low: '#2E7D32',
-        medium: '#EF6C00',
-        high: '#C62828',
-    };
-
-    const statusLabels = {
-        open: 'Open',
-        in_progress: 'In Progress',
-        resolved: 'Resolved',
-    };
 
     return (
         <ScrollView contentContainerStyle={styles.container}>
@@ -40,38 +92,27 @@ const IssueDetailsScreen = () => {
             <View style={styles.metaRow}>
                 <View style={styles.metaItem}>
                     <Text style={styles.metaLabel}>Status</Text>
-                    <Text style={styles.metaValue}>{statusLabels[status]}</Text>
+                    <Animated.Text style={[styles.metaValue, animatedStyle]}>{STATUS_LABELS[status]}</Animated.Text>
                 </View>
                 <View style={styles.metaItem}>
                     <Text style={styles.metaLabel}>Severity</Text>
                     <View style={styles.severityRow}>
-                        <View style={[styles.severityDot, { backgroundColor: severityColors[severity] }]} />
+                        <View style={[styles.severityDot, { backgroundColor: SEVERITY_COLORS[severity] }]} />
                         <Text style={styles.metaValue}>{severity}</Text>
                     </View>
                 </View>
             </View>
 
             <View style={styles.infoSection}>
-
-                <View style={styles.row}>
-                    <Text style={styles.rowLabel}>Room</Text>
-                    <Text style={styles.rowValue}>{room}</Text>
-                </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.row}>
-                    <Text style={styles.rowLabel}>Reported by</Text>
-                    <Text style={styles.rowValue}>{reportedBy}</Text>
-                </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.row}>
-                    <Text style={styles.rowLabel}>Created at</Text>
-                    <Text style={styles.rowValue}>{new Date(createdAt).toLocaleString()}</Text>
-                </View>
+                <InfoRow label="Room" value={room} />
+                <Divider />
+                <InfoRow label="Reported by" value={reportedBy} />
+                <Divider />
+                <InfoRow label="Created at" value={new Date(createdAt).toLocaleString()} />
             </View>
+
+            <StatusButton onPress={handleStatusUpdate} disabled={!nextStatus} nextStatus={nextStatus} />
+            <DeleteButton onPress={handleDelete} />
         </ScrollView>
     );
 };
@@ -160,5 +201,35 @@ const styles = StyleSheet.create({
     divider: {
         height: 1,
         backgroundColor: '#E5E7EB',
+    },
+    deleteSection: {
+        bottom: 0,
+        margin: 10,
+        marginTop: 24,
+        alignItems: 'center',
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
+        paddingVertical: 12,
+        backgroundColor: '#FFF5F5',
+    },
+    deleteText: {
+        color: '#C62828',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    statusButton: {
+        margin: 10,
+        marginTop: 24,
+        backgroundColor: '#E3F2FD',
+        borderColor: '#90CAF9',
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingVertical: 12,
+        alignItems: 'center',
+    },
+    statusButtonDisabled: {
+        backgroundColor: '#F1F5F9',
+        borderColor: '#E5E7EB',
     },
 }); 

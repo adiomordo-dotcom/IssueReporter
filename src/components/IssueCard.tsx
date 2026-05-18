@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useIssueStore } from "../store";
 import { IssueStackParams } from "../navigation/types";
+import { SEVERITY_COLORS, STATUS_LABELS } from "../constants";
 
 interface IssueCardProps {
     issueId: string;
@@ -17,20 +18,17 @@ const IssueCard = ({ issueId }: IssueCardProps) => {
         return null;
     }
 
-    const severityColors = {
-        low: 'green',
-        medium: 'orange',
-        high: 'red',
-    };
+    const { title, room, severity, status } = issue;
 
     return (
         <View style={styles.card}>
             <View style={{ flex: 1 }}>
-                <Text style={styles.title}>{issue.title}</Text>
-                <Text style={styles.room}>{issue.room}</Text>
+                <Text style={styles.room}>Status: {STATUS_LABELS[status]}</Text>
+                <Text style={styles.title}>{title}</Text>
+                <Text style={styles.room}>{room}</Text>
                 <View style={styles.severityContainer}>
-                    <Text style={styles.severityText}>{issue.severity}</Text>
-                    <View style={[styles.severityIndicator, { backgroundColor: severityColors[issue.severity] }]}></View>
+                    <Text style={styles.severityText}>{severity}</Text>
+                    <View style={[styles.severityIndicator, { backgroundColor: SEVERITY_COLORS[severity] }]}></View>
                 </View>
             </View>
             <View style={{ justifyContent: 'center' }}>
